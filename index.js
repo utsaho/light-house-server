@@ -63,6 +63,13 @@ const run = async () => {
             res.send(result);
         });
 
+        //* Getting services expect single service
+        app.get('/services/:id', async (req, res) => {
+            const id = req.params.id;
+            const result = await serviceCollection.find({}) /* use skip and size */.toArray();
+            res.send(result);
+        });
+
     }
     finally { };
 }
