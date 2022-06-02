@@ -35,6 +35,7 @@ const run = async () => {
         await client.connect();
         const userCollection = client.db('light-house').collection('users');
         const serviceCollection = client.db('light-house').collection('services');
+        const orderCollection = client.db('light-house').collection('orders');
 
         //* Store the user email to database and generating token
         app.put('/users/:email', async (req, res) => {
@@ -57,17 +58,69 @@ const run = async () => {
         });
 
         //* Getting a single service
-        app.get('/service/:id', async (req, res) => {
+        app.get('/service/:id', verifyJWT, async (req, res) => {
             const id = req.params.id;
             const result = await serviceCollection.findOne({ _id: ObjectId(id) });
             res.send(result);
         });
 
         //* Getting services expect single service
+        //! use skip called from purchase page
         app.get('/services/:id', async (req, res) => {
             const id = req.params.id;
             const result = await serviceCollection.find({}) /* use skip and size */.toArray();
             res.send(result);
+        });
+
+        //* Store orders
+        app.post('/postOrder', verifyJWT, async (req, res) => {
+            const order = req.body;
+            if (order?.email === req.decoded) {
+                res.send(await orderCollection.insertOne(order));
+                const result = await serviceCollection.findOne({ _id: ObjectId(order.productId) });
+                const t = result.available - parseInt(order.quantity);
+                const updateQuantity = {
+                    $set: {
+                        available: t
+                    }
+                }
+                const temp = await serviceCollection.updateOne({ _id: ObjectId(order.productId) }, updateQuantity, { upsert: false });
+            }
+            else {
+                res.send({});
+            }
+        });
+
+        //* Getting orders
+        app.get('/orders/:email', verifyJWT, async (req, res) => {
+            const email = req.params.email;
+            if (email === req.decoded) {
+                res.send(await orderCollection.find({ email }).toArray());
+            }
+            else {
+                res.send({});
+            }
+        });
+
+        //* Cancel a order
+        app.post('/cancelOrder/:id', verifyJWT, async (req, res) => {
+            const order = req.body;
+            const id = req.params.id;
+            if (req.decoded === order.email) {
+                const result = await orderCollection.deleteOne({ _id: ObjectId(order._id) });
+                res.send(result);
+                const temp = await serviceCollection.findOne({ _id: ObjectId(id) });
+                const available = temp.available + parseInt(order.quantity);
+                const updateAvailable = {
+                    $set: {
+                        available
+                    }
+                }
+                await serviceCollection.updateOne({ _id: ObjectId(id) }, updateAvailable, { upsert: false });
+            }
+            else {
+                res.send({});
+            }
         });
 
     }
