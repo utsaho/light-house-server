@@ -36,6 +36,7 @@ const run = async () => {
         const userCollection = client.db('light-house').collection('users');
         const serviceCollection = client.db('light-house').collection('services');
         const orderCollection = client.db('light-house').collection('orders');
+        const reviewCollection = client.db('light-house').collection('reviews');
 
         //* Store the user email to database and generating token
         app.put('/users/:email', async (req, res) => {
@@ -121,6 +122,17 @@ const run = async () => {
             else {
                 res.send({});
             }
+        });
+
+        //* Storing review
+        app.post('/postReview', verifyJWT, async (req, res) => {
+            const review = req.body;
+            res.send(await reviewCollection.insertOne(review));
+        });
+
+        //* Getting review
+        app.get('/reviews', verifyJWT, async (req, res) => {
+            res.send(await (await reviewCollection.find({}).limit(10).sort({ rating: -1 }).toArray()));
         });
 
     }
