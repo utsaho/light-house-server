@@ -135,7 +135,24 @@ const run = async () => {
             res.send((await reviewCollection.find({}).limit(10).sort({ rating: -1 }).toArray()));
         });
 
+        //* Update profile
+        app.post('/updateProfile', verifyJWT, async (req, res) => {
+            const user = req.body;
+            const email = user?.email;
+            const updateUser = {
+                $set: {
+                    user
+                }
+            }
+            const result = await userCollection.updateOne({ email }, updateUser, { upsert: false });
+            res.send(result);
+        });
 
+        //* Get profile
+        app.get('/getProfile/:email', verifyJWT, async (req, res) => {
+            const email = req.params.email;
+            res.send(await userCollection.findOne({ email }));
+        });
 
     }
     finally { };
