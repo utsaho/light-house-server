@@ -46,7 +46,7 @@ const run = async () => {
             const options = { upsert: true };
             const updateDoc = {
                 $set: {
-                    user,
+                    user: user
                 }
             }
             const result = await userCollection.updateOne(filter, updateDoc, options);
@@ -132,8 +132,10 @@ const run = async () => {
 
         //* Getting review
         app.get('/reviews', verifyJWT, async (req, res) => {
-            res.send(await (await reviewCollection.find({}).limit(10).sort({ rating: -1 }).toArray()));
+            res.send((await reviewCollection.find({}).limit(10).sort({ rating: -1 }).toArray()));
         });
+
+
 
     }
     finally { };
