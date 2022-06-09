@@ -41,13 +41,11 @@ const run = async () => {
         //* Store the user email to database and generating token
         app.put('/users/:email', async (req, res) => {
             const email = req.params.email;
-            const user = req.body;
+            // const user = req.body;
             const filter = { email };
             const options = { upsert: true };
             const updateDoc = {
-                $set: {
-                    user: user
-                }
+                $set: {email}
             }
             const result = await userCollection.updateOne(filter, updateDoc, options);
             const token = jwt.sign({ email }, process.env.SECRET_TOKEN, { expiresIn: '2d' });
@@ -131,14 +129,14 @@ const run = async () => {
         });
 
         //* Getting review
-        app.get('/reviews', verifyJWT, async (req, res) => {
+        app.get('/reviews', async (req, res) => {
             res.send((await reviewCollection.find({}).limit(10).sort({ rating: -1 }).toArray()));
         });
 
         //* Update profile
-        app.post('/updateProfile', verifyJWT, async (req, res) => {
+        app.post('/updateProfile/:email', verifyJWT, async (req, res) => {
             const user = req.body;
-            const email = user?.email;
+            const email = req.params.email;
             const updateUser = {
                 $set: {
                     user
