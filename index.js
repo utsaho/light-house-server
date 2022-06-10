@@ -152,6 +152,19 @@ const run = async () => {
             res.send(await userCollection.findOne({ email }));
         });
 
+        //* Make admin
+        app.get('/makeAdmin/:email', verifyJWT, async(req, res)=>{
+            const email = req.params.email;
+            res.send(await userCollection.updateOne({email}, {$set:{role: 'admin'}}, {upsert: false}))
+        });
+
+        //* Checking for admin
+        app.get('/isAdmin/:email', verifyJWT, async (req, res)=>{
+            const email = req.params.email;
+            const result = await userCollection.findOne({email});
+            res.send({status: result?.role === 'admin'});
+        });
+
     }
     finally { };
 }
