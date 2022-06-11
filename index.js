@@ -165,6 +165,21 @@ const run = async () => {
             res.send({status: result?.role === 'admin'});
         });
 
+        //* Getting all orders
+        //! use skip and pagination for better performance
+        app.get('/allOrders', verifyJWT, async(req, res)=>{
+            res.send(await orderCollection.find({}).toArray());
+        });
+
+        //* Order shipped
+        app.put('/shipped/:id', verifyJWT, async(req, res)=>{
+            const id = req.params.id;
+            const result = await orderCollection.findOne({_id:ObjectId(id)});
+            if(result?.status === 'paid'){
+                res.send(await orderCollection.updateOne({_id:ObjectId(id)}, {$set:{status: 'shipped'}}, {upsert: false}));
+            }
+        });
+
     }
     finally { };
 }
