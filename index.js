@@ -7,6 +7,7 @@ const app = express();
 const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
+const stripe = require('stripe')(process.env.STRIPE_SK);
 
 
 const verifyJWT = async (req, res, next) => {
@@ -24,8 +25,6 @@ const verifyJWT = async (req, res, next) => {
     })
 }
 
-
-
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.nkmib.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
 
@@ -37,6 +36,7 @@ const run = async () => {
         const serviceCollection = client.db('light-house').collection('services');
         const orderCollection = client.db('light-house').collection('orders');
         const reviewCollection = client.db('light-house').collection('reviews');
+        const paymentCollection = client.db('light-house').collection('payments');
 
         //* Store the user email to database and generating token
         app.put('/users/:email', async (req, res) => {
@@ -45,7 +45,7 @@ const run = async () => {
             const filter = { email };
             const options = { upsert: true };
             const updateDoc = {
-                $set: {email}
+                $set: { email }
             }
             const result = await userCollection.updateOne(filter, updateDoc, options);
             const token = jwt.sign({ email }, process.env.SECRET_TOKEN, { expiresIn: '2d' });
@@ -153,31 +153,56 @@ const run = async () => {
         });
 
         //* Make admin
-        app.get('/makeAdmin/:email', verifyJWT, async(req, res)=>{
+        app.get('/makeAdmin/:email', verifyJWT, async (req, res) => {
             const email = req.params.email;
-            res.send(await userCollection.updateOne({email}, {$set:{role: 'admin'}}, {upsert: false}))
+            res.send(await userCollection.updateOne({ email }, { $set: { role: 'admin' } }, { upsert: false }))
         });
 
         //* Checking for admin
-        app.get('/isAdmin/:email', verifyJWT, async (req, res)=>{
+        app.get('/isAdmin/:email', verifyJWT, async (req, res) => {
             const email = req.params.email;
-            const result = await userCollection.findOne({email});
-            res.send({status: result?.role === 'admin'});
+            const result = await userCollection.findOne({ email });
+            res.send({ status: result?.role === 'admin' });
         });
 
         //* Getting all orders
         //! use skip and pagination for better performance
-        app.get('/allOrders', verifyJWT, async(req, res)=>{
+        app.get('/allOrders', verifyJWT, async (req, res) => {
             res.send(await orderCollection.find({}).toArray());
         });
 
-        //* Order shipped
-        app.put('/shipped/:id', verifyJWT, async(req, res)=>{
+        //* Getting single order
+        app.get('/order/:id', async (req, res) => {
             const id = req.params.id;
-            const result = await orderCollection.findOne({_id:ObjectId(id)});
-            if(result?.status === 'paid'){
-                res.send(await orderCollection.updateOne({_id:ObjectId(id)}, {$set:{status: 'shipped'}}, {upsert: false}));
+            res.send(await orderCollection.findOne({ _id: ObjectId(id) }));
+        });
+
+        //* Order shipped
+        app.put('/shipped/:id', verifyJWT, async (req, res) => {
+            const id = req.params.id;
+            const result = await orderCollection.findOne({ _id: ObjectId(id) });
+            if (result?.status === 'paid') {
+                res.send(await orderCollection.updateOne({ _id: ObjectId(id) }, { $set: { status: 'shipped' } }, { upsert: false }));
             }
+        });
+
+        //* Payment intent
+        app.post('/create-payment-intent', verifyJWT, async (req, res) => {
+            const { price } = req.body;
+            const amount = price * 100;
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: amount,
+                currency: 'usd',
+                payment_method_types: ['card']
+            })
+            res.send({ clientSecret: paymentIntent.client_secret });
+        });
+
+        //* update status to paid
+        app.patch('/paid/:id', async (req, res) => {
+            const id = req.params.id;
+            console.log(id);
+            res.send({});
         });
 
     }
