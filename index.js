@@ -105,7 +105,8 @@ const run = async () => {
         app.post('/cancelOrder/:id', verifyJWT, async (req, res) => {
             const order = req.body;
             const id = req.params.id;
-            if (req.decoded === order.email) {
+            const result = await userCollection.findOne({ email: req.decoded });
+            if ((req.decoded === order.email) || (result?.role === 'admin')) {
                 const result = await orderCollection.deleteOne({ _id: ObjectId(order._id) });
                 res.send(result);
                 const temp = await serviceCollection.findOne({ _id: ObjectId(id) });
@@ -199,10 +200,20 @@ const run = async () => {
         });
 
         //* update status to paid
-        app.patch('/paid/:id', async (req, res) => {
+        app.patch('/paid/:id', verifyJWT, async (req, res) => {
             const id = req.params.id;
-            console.log(id);
-            res.send({});
+            const product = req.body;
+            const paymentDoc = {
+                email: product.email,
+                orderId: product._id,
+                productId: product.productId,
+                time: `${new Date().toLocaleTimeString()}, ${new Date().toLocaleDateString()}`,
+                transactionId: product.transactionId,
+                phone: product.phone,
+                price: product.price
+            }
+            await paymentCollection.insertOne(paymentDoc);
+            res.send(await orderCollection.updateOne({ _id: ObjectId(product._id) }, { $set: { status: 'paid', transactionId: product.transactionId } }));
         });
 
     }
