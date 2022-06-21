@@ -94,7 +94,7 @@ const run = async () => {
         app.get('/orders/:email', verifyJWT, async (req, res) => {
             const email = req.params.email;
             if (email === req.decoded) {
-                res.send(await orderCollection.find({ email }).toArray());
+                res.send(await orderCollection.find({ email }).sort({ 'status': -1 }).toArray());
             }
             else {
                 res.send({});
@@ -169,7 +169,7 @@ const run = async () => {
         //* Getting all orders
         //! use skip and pagination for better performance
         app.get('/allOrders', verifyJWT, async (req, res) => {
-            res.send(await orderCollection.find({}).toArray());
+            res.send(await orderCollection.find({}).sort({ 'status': 1 }).toArray());
         });
 
         //* Getting single order
