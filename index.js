@@ -131,7 +131,7 @@ const run = async () => {
 
         //* Getting review
         app.get('/reviews', async (req, res) => {
-            res.send((await reviewCollection.find({}).limit(10).sort({ rating: -1 }).toArray()));
+            res.send((await reviewCollection.find({}).limit(100).sort({ rating: -1 }).toArray()));
         });
 
         //* Update profile
@@ -214,6 +214,7 @@ const run = async () => {
             }
             await paymentCollection.insertOne(paymentDoc);
             res.send(await orderCollection.updateOne({ _id: ObjectId(product._id) }, { $set: { status: 'paid', transactionId: product.transactionId } }));
+            res.send({});
         });
 
     }
