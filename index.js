@@ -217,6 +217,17 @@ const run = async () => {
             res.send({});
         });
 
+        //* Getting image storage key for admin
+        app.get('/imageStorageKey/:email', verifyJWT, async (req, res) => {
+            const email = req.params.email;
+            if (req.decoded === email) {
+                res.send(await userCollection.findOne({ email }));
+            }
+            else {
+                req.send({});
+            }
+        });
+
     }
     finally { };
 }
