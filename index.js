@@ -57,11 +57,11 @@ const run = async () => {
             res.send(await serviceCollection.find({}).toArray());
         });
 
-        //* Post a service
+        //* Post a product
         app.post('/newProduct/:email', verifyJWT, async (req, res) => {
             const email = req.params.email;
             const product = req.body;
-            if (req.decoded === email) {
+            if ((req.decoded === email) && product?.img) {
                 res.send(await serviceCollection.insertOne({ ...product }));
             }
             else {
@@ -151,13 +151,20 @@ const run = async () => {
         app.post('/updateProfile/:email', verifyJWT, async (req, res) => {
             const user = req.body;
             const email = req.params.email;
-            const updateUser = {
-                $set: {
-                    user
+            if (email === req.decoded) {
+                if (user?.imageStorageKey) {
+                    const key = user?.imageStorageKey;
+                    await userCollection.updateOne({ email }, { $set: { imageStorageKey: key } }, { upsert: false });
+                    delete user.imageStorageKey;
                 }
+                const updateUser = {
+                    $set: {
+                        user
+                    }
+                }
+                res.send(await userCollection.updateOne({ email }, updateUser, { upsert: false }));
             }
-            const result = await userCollection.updateOne({ email }, updateUser, { upsert: false });
-            res.send(result);
+            else res.send({});
         });
 
         //* Get profile
@@ -251,12 +258,16 @@ const run = async () => {
         });
 
         //* Admin status change
-
         app.put('/adminSetting/:email', verifyJWT, async (req, res) => {
             const email = req.params.email;
-            const status = req.body;
+            const user = req.body;
             if (email === req.decoded) {
-                console.log(status);
+                if (!user?.admin) {
+                    res.send(await userCollection.updateOne({ email: user?.email }, { $set: { role: 'admin', imageStorageKey: user?.imageStorageKey } }, { upsert: true }));
+                }
+                else {
+                    res.send(await userCollection.updateOne({ email: user?.email }, { $set: { role: 'user', imageStorageKey: null } }, { upsert: true }));
+                }
             }
             else res.send({});
         });
