@@ -52,8 +52,21 @@ const run = async () => {
             res.send({ result, token });
         });
 
+        //* Getting all services
         app.get('/services', async (req, res) => {
             res.send(await serviceCollection.find({}).toArray());
+        });
+
+        //* Post a service
+        app.post('/newProduct/:email', verifyJWT, async (req, res) => {
+            const email = req.params.email;
+            const product = req.body;
+            if (req.decoded === email) {
+                res.send(await serviceCollection.insertOne({ ...product }));
+            }
+            else {
+                res.send({});
+            }
         });
 
         //* Getting a single service
@@ -226,6 +239,26 @@ const run = async () => {
             else {
                 req.send({});
             }
+        });
+
+        //* Sending all users
+        app.get('/allUsers/:email', verifyJWT, async (req, res) => {
+            const email = req.params.email;
+            if (email === req.decoded) {
+                res.send(await userCollection.find({}).toArray());
+            }
+            else res.send({});
+        });
+
+        //* Admin status change
+
+        app.put('/adminSetting/:email', verifyJWT, async (req, res) => {
+            const email = req.params.email;
+            const status = req.body;
+            if (email === req.decoded) {
+                console.log(status);
+            }
+            else res.send({});
         });
 
     }
