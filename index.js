@@ -41,7 +41,6 @@ const run = async () => {
         //* Store the user email to database and generating token
         app.put('/users/:email', async (req, res) => {
             const email = req.params.email;
-            // const user = req.body;
             const filter = { email };
             const options = { upsert: true };
             const updateDoc = {
@@ -72,8 +71,11 @@ const run = async () => {
         //* Getting a single service
         app.get('/service/:id', verifyJWT, async (req, res) => {
             const id = req.params.id;
-            const result = await serviceCollection.findOne({ _id: ObjectId(id) });
-            res.send(result);
+            if (id.split('-')[1] === 'name') {
+                const name = id.split('-')[0];
+                res.send(await serviceCollection.findOne({ name: `${name}` }));
+            }
+            else res.send(await serviceCollection.findOne({ _id: ObjectId(id) }));
         });
 
         //* Getting services expect single service
@@ -87,6 +89,7 @@ const run = async () => {
         //* Store orders
         app.post('/postOrder', verifyJWT, async (req, res) => {
             const order = req.body;
+            console.log(req.decoded);
             if (order?.email === req.decoded) {
                 res.send(await orderCollection.insertOne(order));
                 const result = await serviceCollection.findOne({ _id: ObjectId(order.productId) });
@@ -130,6 +133,20 @@ const run = async () => {
                     }
                 }
                 await serviceCollection.updateOne({ _id: ObjectId(id) }, updateAvailable, { upsert: false });
+            }
+            else {
+                res.send({});
+            }
+        });
+
+        //* Delete a product
+        app.post('/product/:id', verifyJWT, async (req, res) => {
+            const order = req.body;
+            const id = req.params.id;
+            const result = await userCollection.findOne({ email: req.decoded });
+            if (result?.role === 'admin') {
+                const result = await serviceCollection.deleteOne({ _id: ObjectId(order._id) });
+                res.send(result);
             }
             else {
                 res.send({});
@@ -188,8 +205,10 @@ const run = async () => {
 
         //* Getting all orders
         //! use skip and pagination for better performance
-        app.get('/allOrders', verifyJWT, async (req, res) => {
-            res.send(await orderCollection.find({}).sort({ 'status': 1 }).toArray());
+        app.get('/allOrders/:category', verifyJWT, async (req, res) => {
+            const category = req.params.category;
+            if (category !== 'all') res.send(await orderCollection.find({ 'status': `${category}` }).toArray());
+            else res.send(await orderCollection.find({}).toArray());
         });
 
         //* Getting single order
@@ -234,7 +253,6 @@ const run = async () => {
             }
             await paymentCollection.insertOne(paymentDoc);
             res.send(await orderCollection.updateOne({ _id: ObjectId(product._id) }, { $set: { status: 'paid', transactionId: product.transactionId } }));
-            res.send({});
         });
 
         //* Getting image storage key for admin
@@ -244,7 +262,7 @@ const run = async () => {
                 res.send(await userCollection.findOne({ email }));
             }
             else {
-                req.send({});
+                res.send({});
             }
         });
 
