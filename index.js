@@ -37,6 +37,7 @@ const run = async () => {
         const orderCollection = client.db('light-house').collection('orders');
         const reviewCollection = client.db('light-house').collection('reviews');
         const paymentCollection = client.db('light-house').collection('payments');
+        const summeryCollection = client.db('light-house').collection('summery');
 
         //* Store the user email to database and generating token
         app.put('/users/:email', async (req, res) => {
@@ -161,7 +162,7 @@ const run = async () => {
 
         //* Getting review
         app.get('/reviews', async (req, res) => {
-            res.send((await reviewCollection.find({}).limit(100).sort({ rating: -1 }).toArray()));
+            res.send(await reviewCollection.find({}).limit(100).sort({ rating: -1 }).toArray());
         });
 
         //* Update profile
@@ -251,6 +252,15 @@ const run = async () => {
                 phone: product.phone,
                 price: product.price
             }
+
+            const presentRevenue = await summeryCollection.find({}).toArray();
+            if (presentRevenue.length) {
+                const tempRevenue = presentRevenue[0].revenue;
+                // const id = presentRevenue[0]._id.toJSON();
+                await summeryCollection.updateOne({ _id: ObjectId(presentRevenue[0]._id.toJSON()) }, { $set: { revenue: presentRevenue[0].revenue + product.price } });
+            }
+            else await summeryCollection.insertOne({ revenue: product.price });
+
             await paymentCollection.insertOne(paymentDoc);
             res.send(await orderCollection.updateOne({ _id: ObjectId(product._id) }, { $set: { status: 'paid', transactionId: product.transactionId } }));
         });
@@ -288,6 +298,16 @@ const run = async () => {
                 }
             }
             else res.send({});
+        });
+
+        //* Business Summery
+        app.get('/summery', async (req, res) => {
+            const customers = await userCollection.estimatedDocumentCount();
+            const reviews = await reviewCollection.estimatedDocumentCount();
+            const tools = await serviceCollection.estimatedDocumentCount();
+            const revenueArr = await summeryCollection.find({}).toArray();
+            const revenue = revenueArr[0].revenue;
+            res.send({ customers, reviews, tools, revenue });
         });
 
     }
