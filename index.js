@@ -307,7 +307,7 @@ const run = async () => {
             const tools = await serviceCollection.estimatedDocumentCount();
             const revenueArr = await summeryCollection.find({}).toArray();
             const revenue = revenueArr[0].revenue;
-            res.send({ customers, reviews, tools, revenue });
+            res.send({ customers, tools, revenue, reviews });
         });
 
     }
