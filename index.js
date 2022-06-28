@@ -38,6 +38,7 @@ const run = async () => {
         const reviewCollection = client.db('light-house').collection('reviews');
         const paymentCollection = client.db('light-house').collection('payments');
         const summeryCollection = client.db('light-house').collection('summery');
+        const qnaCollection = client.db('light-house').collection('QNA');
 
         //* Store the user email to database and generating token
         app.put('/users/:email', async (req, res) => {
@@ -308,6 +309,11 @@ const run = async () => {
             const revenueArr = await summeryCollection.find({}).toArray();
             const revenue = revenueArr[0].revenue;
             res.send({ customers, tools, revenue, reviews });
+        });
+
+        //* getting QNA
+        app.get('/qna', async (req, res) => {
+            res.send(await qnaCollection.find({}).toArray());
         });
 
     }
