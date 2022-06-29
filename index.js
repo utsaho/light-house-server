@@ -43,10 +43,11 @@ const run = async () => {
         //* Store the user email to database and generating token
         app.put('/users/:email', async (req, res) => {
             const email = req.params.email;
+            const photoURL = req.body?.photoURL;
             const filter = { email };
             const options = { upsert: true };
             const updateDoc = {
-                $set: { email }
+                $set: { email, photoURL }
             }
             const result = await userCollection.updateOne(filter, updateDoc, options);
             const token = jwt.sign({ email }, process.env.SECRET_TOKEN, { expiresIn: '2d' });
@@ -56,6 +57,26 @@ const run = async () => {
         //* Getting all services
         app.get('/services', async (req, res) => {
             res.send(await serviceCollection.find({}).toArray());
+        });
+
+        //* Searching services
+        app.get('/product/:search', async (req, res) => {
+            const search = req.params.search;
+            console.log(search);
+            console.log(await serviceCollection.aggregate([{
+                "$search": {
+                    "regex": {
+                        "path": "name",
+                        "query": "(.*) Bulb"
+                    }
+                }
+            }, {
+                $project: {
+                    "_id": 0,
+                    "name": 1
+                }
+            }]).toArray())
+            // console.log(await serviceCollection.find({ $or: [{ name: `${search}` }] }).toArray())
         });
 
         //* Post a product
@@ -162,8 +183,9 @@ const run = async () => {
         });
 
         //* Getting review
-        app.get('/reviews', async (req, res) => {
-            res.send(await reviewCollection.find({}).limit(100).sort({ rating: -1 }).toArray());
+        app.get('/reviews/:numberOfReviews', async (req, res) => {
+            const number = parseInt(req.params.numberOfReviews);
+            res.send(await reviewCollection.find({}).limit(number).sort({ date: -1 }).toArray());
         });
 
         //* Update profile
