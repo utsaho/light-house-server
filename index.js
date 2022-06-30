@@ -8,6 +8,27 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 const stripe = require('stripe')(process.env.STRIPE_SK);
+const nodemailer = require('nodemailer');
+
+
+const transporter = nodemailer.createTransport({
+    service: 'SendinBlue',
+    auth: {
+        user: 'freeusers.any@gmail.com',
+        pass: 'fSp9VvKghG06Y4BM',
+    }
+});
+
+function sendMail(data) {
+    transporter.sendMail({
+        to: data.email,
+        from: 'light.house@manufacturer.com',
+        subject: data?.subject,
+        html: data.html
+    }).then((res) => console.log(res))
+        .catch((err) => console.log("Failed ", err))
+}
+
 
 
 const verifyJWT = async (req, res, next) => {
@@ -39,6 +60,23 @@ const run = async () => {
         const paymentCollection = client.db('light-house').collection('payments');
         const summeryCollection = client.db('light-house').collection('summery');
         const qnaCollection = client.db('light-house').collection('QNA');
+        const emailCollection = client.db('light-house').collection('emailSubscriber');
+
+
+        app.post('/subscribe/:email', async (req, res) => {
+            const email = req.params.email;
+            const mail = {
+                email,
+                subject: 'Thank for subscribe',
+                html: `
+                <h2><strong>Congratulations!!!</strong></h2>
+<p>Here is the first mail from Light House Ltd. You will get every new products information by email.  Thank for the subscribe. Havea good day!</p>
+                `
+            }
+            sendMail(mail);
+            res.send(await emailCollection.updateOne({ email }, { $set: { email } }, { upsert: true }))
+        });
+
 
         //* Store the user email to database and generating token
         app.put('/users/:email', async (req, res) => {
@@ -62,21 +100,7 @@ const run = async () => {
         //* Searching services
         app.get('/product/:search', async (req, res) => {
             const search = req.params.search;
-            console.log(search);
-            console.log(await serviceCollection.aggregate([{
-                "$search": {
-                    "regex": {
-                        "path": "name",
-                        "query": "(.*) Bulb"
-                    }
-                }
-            }, {
-                $project: {
-                    "_id": 0,
-                    "name": 1
-                }
-            }]).toArray())
-            // console.log(await serviceCollection.find({ $or: [{ name: `${search}` }] }).toArray())
+            res.send(await serviceCollection.find({ name: { $regex: search, $options: '$i' } }).toArray());
         });
 
         //* Post a product
@@ -85,6 +109,17 @@ const run = async () => {
             const product = req.body;
             if ((req.decoded === email) && product?.img) {
                 res.send(await serviceCollection.insertOne({ ...product }));
+                const customers = (await emailCollection.find({}).toArray());
+                customers.map(customer => {
+                    const mail = {
+                        email: customer?.email,
+                        subject: 'New Product here',
+                        html: `<h4>Hello friend!!</h4>
+                        <h5>Here is our new product: </h5>
+                        <p>Name: ${product?.name} <br /> Price: ${product?.price} <br /> Still Available: ${product?.available} <br /> ${product?.description} <br/> <h2>Light House LTD.</h2> </p>`
+                    }
+                    sendMail(mail);
+                });
             }
             else {
                 res.send({});
@@ -112,7 +147,6 @@ const run = async () => {
         //* Store orders
         app.post('/postOrder', verifyJWT, async (req, res) => {
             const order = req.body;
-            console.log(req.decoded);
             if (order?.email === req.decoded) {
                 res.send(await orderCollection.insertOne(order));
                 const result = await serviceCollection.findOne({ _id: ObjectId(order.productId) });
@@ -123,6 +157,17 @@ const run = async () => {
                     }
                 }
                 const temp = await serviceCollection.updateOne({ _id: ObjectId(order.productId) }, updateQuantity, { upsert: false });
+
+                const mail = {
+                    email: order.email,
+                    subject: 'Order Notification!',
+                    html: `<h4>Hello ${order.name}</h4> <br />
+                    <p>Thanks for the order. Your order is now pending.</p>
+                    <h4>Order Details: </h4>
+                    <p>Name: ${order.productName} <br /> Price: ${order.price} <br /> Date: ${order.date}</p>
+                    <h3>Please Pay to get your order shipped!!!</h3>`
+                }
+                sendMail(mail);
             }
             else {
                 res.send({});
@@ -286,6 +331,20 @@ const run = async () => {
 
             await paymentCollection.insertOne(paymentDoc);
             res.send(await orderCollection.updateOne({ _id: ObjectId(product._id) }, { $set: { status: 'paid', transactionId: product.transactionId } }));
+
+
+            const mail = {
+                email: paymentDoc.email,
+                subject: 'Order Confirmation!',
+                html: `<h4>Hello ${product.name}</h4> <br />
+                <p>Your payment has been completed successfully for ${product.productName}</p>
+                <h4>Order Details: </h4>
+                <p>Name: ${product.productName} <br /> Price: ${paymentDoc.price} <br /> Date: ${paymentDoc.time}</p>`
+            }
+            sendMail(mail);
+
+
+
         });
 
         //* Getting image storage key for admin
